@@ -1,0 +1,5 @@
+{
+  "name": "WiggleLine Studio",
+  "description": "Turn static 2D sketches into animated, boiling-line GIFs. Features line extraction, adjustable jitter, and GIF export.",
+  "requestFramePermissions": []
+}
