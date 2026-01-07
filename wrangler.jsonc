@@ -1,8 +1,7 @@
 {
   "name": "wiggleline-studio",
-  "compatibility_date": "2026-01-06",
+  "compatibility_date": "2026-01-07",
   "assets": {
-    "directory": "./dist",
-    "binding": "ASSETS"
+    "directory": "./dist" 
   }
 }
