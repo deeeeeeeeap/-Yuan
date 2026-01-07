@@ -118,8 +118,8 @@ const Controls: React.FC<ControlsProps> = ({
   t
 }) => {
   return (
-    <div className="w-full lg:w-80 bg-gray-900 border-l border-gray-800 p-6 flex flex-col h-full overflow-y-auto">
-      <h2 className="text-lg font-bold text-white mb-6 flex items-center">
+    <div className="w-full lg:w-80 bg-gray-900 border-t lg:border-t-0 lg:border-l border-gray-800 p-6 flex flex-col h-[40vh] lg:h-full overflow-y-auto">
+      <h2 className="text-lg font-bold text-white mb-6 flex items-center sticky top-0 bg-gray-900 pb-2 z-10">
         <span className="bg-indigo-600 w-2 h-6 rounded mr-3"></span>
         {t.settings}
       </h2>
@@ -202,7 +202,7 @@ const Controls: React.FC<ControlsProps> = ({
         </section>
       </div>
 
-      <div className="mt-8 pt-6 border-t border-gray-800">
+      <div className="mt-8 pt-6 border-t border-gray-800 sticky bottom-0 bg-gray-900 pb-2">
         <button
           onClick={onExport}
           disabled={!hasImage || isExporting}

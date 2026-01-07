@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import Controls from './components/Controls';
 import Button from './components/Button';
 import { loadImage, setupCanvas, generateJitterFrames } from './utils/imageProcessing';
@@ -11,12 +10,6 @@ import { translations, Language } from './utils/translations';
 const UploadIcon = () => (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-  </svg>
-);
-
-const SparklesIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
   </svg>
 );
 
@@ -33,7 +26,6 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<ProcessingSettings>(DEFAULT_SETTINGS);
   const [generatedFrames, setGeneratedFrames] = useState<ImageData[]>([]);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
   const [lang, setLang] = useState<Language>('zh');
   const [workerBlobUrl, setWorkerBlobUrl] = useState<string | null>(null);
 
@@ -42,14 +34,12 @@ const App: React.FC = () => {
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const animationReqRef = useRef<number>();
   const originalImageRef = useRef<HTMLImageElement | null>(null);
   const loadedSrcRef = useRef<string | null>(null); // Track loaded src to avoid re-decoding
 
   // --- Initialization ---
   
   // Load the GIF worker script from CDN and create a Blob URL
-  // This avoids "SecurityError" when trying to load a cross-origin worker directly
   useEffect(() => {
     const loadWorker = async () => {
       try {
@@ -66,65 +56,16 @@ const App: React.FC = () => {
     return () => {
       if (workerBlobUrl) URL.revokeObjectURL(workerBlobUrl);
     };
-  }, []); // Only run once
+  }, []);
 
   // --- Handlers ---
 
-  // Handle file upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
       setImageSrc(url);
       setDownloadUrl(null);
-    }
-  };
-
-  // Generate Sample via Gemini
-  const handleGenerateSample = async () => {
-    if (!process.env.API_KEY) {
-      alert(t.apiKeyAlert);
-      return;
-    }
-
-    try {
-      setIsAiLoading(true);
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      // Use standard image generation model
-      const model = 'gemini-2.5-flash-image'; 
-      
-      const response = await ai.models.generateContent({
-        model,
-        contents: {
-          parts: [{ text: t.prompt }]
-        }
-      });
-
-      // Extract image
-      let foundImage = false;
-      const candidates = response.candidates;
-      if (candidates && candidates.length > 0) {
-        for (const part of candidates[0].content.parts) {
-          if (part.inlineData && part.inlineData.data) {
-             const base64 = part.inlineData.data;
-             const mimeType = part.inlineData.mimeType || 'image/png';
-             setImageSrc(`data:${mimeType};base64,${base64}`);
-             setDownloadUrl(null);
-             foundImage = true;
-             break;
-          }
-        }
-      }
-      
-      if (!foundImage) {
-        alert(t.geminiError);
-      }
-
-    } catch (error) {
-      console.error(error);
-      alert(t.generalError);
-    } finally {
-      setIsAiLoading(false);
     }
   };
 
@@ -195,7 +136,7 @@ const App: React.FC = () => {
     settings.scale,
     settings.detectionMode,
     settings.useOriginalColors,
-    settings.jitterSpeed // Although jitterSpeed affects animation, regenerating frames isn't strictly necessary unless we burn it in. But let's keep it consistent.
+    settings.jitterSpeed
   ]);
 
   // 2. Animation Loop
@@ -272,46 +213,61 @@ const App: React.FC = () => {
     gif.render();
   };
 
+  // Wrapper style: Use 100dvh for better mobile browser support
   return (
-    <div className="flex flex-col lg:flex-row h-screen w-full bg-[#09090b] text-gray-100 overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-[100dvh] w-full bg-[#09090b] text-gray-100 overflow-hidden">
       
-      {/* Sidebar Controls */}
-      <Controls 
-        settings={settings}
-        updateSettings={handleUpdateSettings}
-        onGenerate={() => {}} // Not used directly in sidebar anymore
-        onExport={handleExport}
-        isGenerating={status === AppStatus.PROCESSING}
-        isExporting={status === AppStatus.EXPORTING}
-        hasImage={!!imageSrc}
-        t={t}
-      />
+      {/* 
+        Layout Strategy: 
+        Mobile: Header -> Main (Image) -> Controls
+        Desktop: Sidebar (Controls) -> Main (Image)
+        
+        We use flex order to achieve this while keeping semantic HTML reasonably structured.
+        Mobile defaults: flex-col. 
+        Desktop defaults: lg:flex-row.
+      */}
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col relative h-full">
+      {/* Sidebar Controls */}
+      {/* Mobile: Order 3 (Bottom). Desktop: Order 1 (Left) */}
+      <div className="order-3 lg:order-1 flex-shrink-0 z-20">
+        <Controls 
+          settings={settings}
+          updateSettings={handleUpdateSettings}
+          onGenerate={() => {}} 
+          onExport={handleExport}
+          isGenerating={status === AppStatus.PROCESSING}
+          isExporting={status === AppStatus.EXPORTING}
+          hasImage={!!imageSrc}
+          t={t}
+        />
+      </div>
+
+      {/* Main Content (Canvas) */}
+      {/* Mobile: Order 2. Desktop: Order 2. */}
+      <main className="order-2 lg:order-2 flex-1 flex flex-col relative min-h-[40vh] overflow-hidden">
         
         {/* Header / Top Bar */}
-        <header className="h-16 border-b border-gray-800 flex items-center justify-between px-6 bg-[#09090b]/90 backdrop-blur z-10">
+        <header className="flex-shrink-0 h-16 border-b border-gray-800 flex items-center justify-between px-4 lg:px-6 bg-[#09090b]/90 backdrop-blur z-10">
           <div className="flex items-center">
-            <h1 className="text-xl font-bold tracking-tight text-white flex items-center mr-6">
+            <h1 className="text-lg lg:text-xl font-bold tracking-tight text-white flex items-center mr-4 lg:mr-6">
               <span className="text-indigo-500 mr-2">✦</span> {t.appTitle}
             </h1>
             
             <button 
               onClick={toggleLanguage}
-              className="flex items-center space-x-1 text-xs font-medium text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-full transition-colors"
+              className="flex items-center space-x-1 text-[10px] lg:text-xs font-medium text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 px-2 lg:px-3 py-1.5 rounded-full transition-colors"
             >
               <GlobeIcon />
               <span>{lang === 'en' ? 'EN / 中文' : '中文 / EN'}</span>
             </button>
           </div>
           
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 lg:space-x-3">
              {downloadUrl && (
               <a 
                 href={downloadUrl} 
                 download="wiggle-export.gif"
-                className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-green-900/20"
+                className="inline-flex items-center px-3 py-1.5 lg:px-4 lg:py-2 bg-green-600 hover:bg-green-500 text-white text-xs lg:text-sm font-medium rounded-lg transition-colors shadow-lg shadow-green-900/20"
               >
                 {t.downloadGif}
               </a>
@@ -329,57 +285,35 @@ const App: React.FC = () => {
               variant="secondary" 
               onClick={() => fileInputRef.current?.click()}
               icon={<UploadIcon />}
+              className="text-xs lg:text-sm"
             >
               {t.uploadImage}
-            </Button>
-
-            <Button
-              variant="primary"
-              onClick={handleGenerateSample}
-              isLoading={isAiLoading}
-              icon={<SparklesIcon />}
-            >
-              {t.generateSample}
             </Button>
           </div>
         </header>
 
         {/* Canvas Area */}
-        <div className="flex-1 flex items-center justify-center p-8 bg-[#0c0c0e] overflow-auto relative">
+        <div className="flex-1 flex items-center justify-center p-4 lg:p-8 bg-[#0c0c0e] overflow-auto relative">
           
-          {!imageSrc && !isAiLoading && (
-            <div className="text-center max-w-md">
-              <div className="w-20 h-20 bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-6 text-gray-500">
+          {!imageSrc && (
+            <div className="text-center max-w-md px-4">
+              <div className="w-16 h-16 lg:w-20 lg:h-20 bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-6 text-gray-500">
                 <UploadIcon />
               </div>
-              <h2 className="text-2xl font-bold text-white mb-2">{t.startCreating}</h2>
-              <p className="text-gray-400 mb-6">
+              <h2 className="text-xl lg:text-2xl font-bold text-white mb-2">{t.startCreating}</h2>
+              <p className="text-gray-400 text-sm lg:text-base mb-6">
                 {t.introText}
               </p>
               <div className="flex justify-center gap-4">
                  <Button onClick={() => fileInputRef.current?.click()}>
                     {t.uploadSketch}
                  </Button>
-                 <span className="text-gray-600 self-center">{t.or}</span>
-                 <button 
-                  onClick={handleGenerateSample}
-                  className="text-indigo-400 hover:text-indigo-300 font-medium text-sm underline underline-offset-4"
-                 >
-                   {t.generateWithAi}
-                 </button>
               </div>
             </div>
           )}
 
-          {isAiLoading && (
-            <div className="flex flex-col items-center animate-pulse">
-               <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-               <p className="text-indigo-400 font-medium">{t.dreaming}</p>
-            </div>
-          )}
-
-          <div className={`relative shadow-2xl rounded-sm overflow-hidden border border-gray-800 transition-opacity duration-300 ${imageSrc && !isAiLoading ? 'opacity-100' : 'opacity-0 hidden'}`}>
-             <canvas ref={canvasRef} className="block max-w-full max-h-[80vh]" />
+          <div className={`relative shadow-2xl rounded-sm overflow-hidden border border-gray-800 transition-opacity duration-300 max-w-full max-h-full ${imageSrc ? 'opacity-100' : 'opacity-0 hidden'}`}>
+             <canvas ref={canvasRef} className="block object-contain max-w-full max-h-[calc(100dvh-14rem)] lg:max-h-[80vh]" />
              
              {/* Status Overlay */}
              {status === AppStatus.EXPORTING && (
