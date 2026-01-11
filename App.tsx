@@ -35,11 +35,10 @@ const App: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const originalImageRef = useRef<HTMLImageElement | null>(null);
-  const loadedSrcRef = useRef<string | null>(null); // Track loaded src to avoid re-decoding
+  const loadedSrcRef = useRef<string | null>(null);
 
   // --- Initialization ---
   
-  // Load the GIF worker script from CDN and create a Blob URL
   useEffect(() => {
     const loadWorker = async () => {
       try {
@@ -77,9 +76,8 @@ const App: React.FC = () => {
     setLang(prev => prev === 'en' ? 'zh' : 'en');
   };
 
-  // --- Core Logic: Process Image & Animation Loop ---
+  // --- Core Logic ---
 
-  // 1. When Image or Settings change, regenerate frames
   useEffect(() => {
     let isMounted = true;
     
@@ -88,7 +86,6 @@ const App: React.FC = () => {
       
       if (isMounted) setStatus(AppStatus.PROCESSING);
       try {
-        // Only load image if source actually changed
         if (loadedSrcRef.current !== imageSrc) {
            originalImageRef.current = await loadImage(imageSrc);
            loadedSrcRef.current = imageSrc;
@@ -99,10 +96,7 @@ const App: React.FC = () => {
         
         if (!ctx || !img) return;
 
-        // Resize canvas
         const dimensions = setupCanvas(canvasRef.current, img, settings.scale);
-        
-        // Generate Frames
         const frames = generateJitterFrames(
           ctx, 
           img, 
@@ -139,7 +133,6 @@ const App: React.FC = () => {
     settings.jitterSpeed
   ]);
 
-  // 2. Animation Loop
   useEffect(() => {
     if (generatedFrames.length === 0 || !canvasRef.current) return;
 
@@ -167,25 +160,20 @@ const App: React.FC = () => {
     };
   }, [generatedFrames, settings.jitterSpeed]);
 
-
-  // --- Export Logic ---
-
   const handleExport = async () => {
     if (generatedFrames.length === 0 || !canvasRef.current) return;
 
     setStatus(AppStatus.EXPORTING);
     setDownloadUrl(null);
 
-    // Ensure gif.js is loaded
     if (!window.GIF) {
       alert(t.gifLibError);
       setStatus(AppStatus.IDLE);
       return;
     }
     
-    // Ensure worker is loaded
     if (!workerBlobUrl) {
-      alert("Worker script not loaded yet. Please wait a moment and try again.");
+      alert("Worker script not loaded yet.");
       setStatus(AppStatus.IDLE);
       return;
     }
@@ -199,7 +187,6 @@ const App: React.FC = () => {
       background: settings.bgColor
     });
 
-    // Add frames to GIF
     generatedFrames.forEach(frame => {
       gif.addFrame(frame, { delay: settings.jitterSpeed });
     });
@@ -213,43 +200,22 @@ const App: React.FC = () => {
     gif.render();
   };
 
-  // Wrapper style: Use 100dvh for better mobile browser support
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] w-full bg-[#09090b] text-gray-100 overflow-hidden">
       
       {/* 
         Layout Strategy: 
         Mobile: Header -> Main (Image) -> Controls
-        Desktop: Sidebar (Controls) -> Main (Image)
-        
-        We use flex order to achieve this while keeping semantic HTML reasonably structured.
-        Mobile defaults: flex-col. 
-        Desktop defaults: lg:flex-row.
+        We use flex order and flex-grow/shrink to handle mobile better.
       */}
 
-      {/* Sidebar Controls */}
-      {/* Mobile: Order 3 (Bottom). Desktop: Order 1 (Left) */}
-      <div className="order-3 lg:order-1 flex-shrink-0 z-20">
-        <Controls 
-          settings={settings}
-          updateSettings={handleUpdateSettings}
-          onGenerate={() => {}} 
-          onExport={handleExport}
-          isGenerating={status === AppStatus.PROCESSING}
-          isExporting={status === AppStatus.EXPORTING}
-          hasImage={!!imageSrc}
-          t={t}
-        />
-      </div>
-
-      {/* Main Content (Canvas) */}
-      {/* Mobile: Order 2. Desktop: Order 2. */}
-      <main className="order-2 lg:order-2 flex-1 flex flex-col relative min-h-[40vh] overflow-hidden">
+      {/* Main Content (Canvas Area) */}
+      <main className="order-2 lg:order-2 flex-1 flex flex-col relative overflow-hidden min-h-0">
         
         {/* Header / Top Bar */}
-        <header className="flex-shrink-0 h-16 border-b border-gray-800 flex items-center justify-between px-4 lg:px-6 bg-[#09090b]/90 backdrop-blur z-10">
+        <header className="flex-shrink-0 h-16 border-b border-gray-800 flex items-center justify-between px-4 lg:px-6 bg-[#09090b]/90 backdrop-blur z-30">
           <div className="flex items-center">
-            <h1 className="text-lg lg:text-xl font-bold tracking-tight text-white flex items-center mr-4 lg:mr-6">
+            <h1 className="text-lg lg:text-xl font-bold tracking-tight text-white flex items-center mr-2 lg:mr-6 whitespace-nowrap">
               <span className="text-indigo-500 mr-2">✦</span> {t.appTitle}
             </h1>
             
@@ -258,7 +224,7 @@ const App: React.FC = () => {
               className="flex items-center space-x-1 text-[10px] lg:text-xs font-medium text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 px-2 lg:px-3 py-1.5 rounded-full transition-colors"
             >
               <GlobeIcon />
-              <span>{lang === 'en' ? 'EN / 中文' : '中文 / EN'}</span>
+              <span className="hidden sm:inline">{lang === 'en' ? 'EN / 中文' : '中文 / EN'}</span>
             </button>
           </div>
           
@@ -267,7 +233,7 @@ const App: React.FC = () => {
               <a 
                 href={downloadUrl} 
                 download="wiggle-export.gif"
-                className="inline-flex items-center px-3 py-1.5 lg:px-4 lg:py-2 bg-green-600 hover:bg-green-500 text-white text-xs lg:text-sm font-medium rounded-lg transition-colors shadow-lg shadow-green-900/20"
+                className="inline-flex items-center px-3 py-1.5 lg:px-4 lg:py-2 bg-green-600 hover:bg-green-500 text-white text-xs lg:text-sm font-medium rounded-lg transition-colors shadow-lg"
               >
                 {t.downloadGif}
               </a>
@@ -285,19 +251,19 @@ const App: React.FC = () => {
               variant="secondary" 
               onClick={() => fileInputRef.current?.click()}
               icon={<UploadIcon />}
-              className="text-xs lg:text-sm"
+              className="text-xs lg:text-sm px-2 sm:px-4"
             >
-              {t.uploadImage}
+              <span className="hidden sm:inline">{t.uploadImage}</span>
+              <span className="sm:hidden">{t.uploadSketch}</span>
             </Button>
           </div>
         </header>
 
-        {/* Canvas Area */}
-        <div className="flex-1 flex items-center justify-center p-4 lg:p-8 bg-[#0c0c0e] overflow-auto relative">
-          
+        {/* Canvas Display Area */}
+        <div className="flex-1 flex items-center justify-center p-4 lg:p-8 bg-[#0c0c0e] overflow-auto relative min-h-0">
           {!imageSrc && (
             <div className="text-center max-w-md px-4">
-              <div className="w-16 h-16 lg:w-20 lg:h-20 bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-6 text-gray-500">
+              <div className="w-16 h-16 lg:w-20 lg:h-20 bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-6 text-gray-500 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                 <UploadIcon />
               </div>
               <h2 className="text-xl lg:text-2xl font-bold text-white mb-2">{t.startCreating}</h2>
@@ -313,19 +279,31 @@ const App: React.FC = () => {
           )}
 
           <div className={`relative shadow-2xl rounded-sm overflow-hidden border border-gray-800 transition-opacity duration-300 max-w-full max-h-full ${imageSrc ? 'opacity-100' : 'opacity-0 hidden'}`}>
-             <canvas ref={canvasRef} className="block object-contain max-w-full max-h-[calc(100dvh-14rem)] lg:max-h-[80vh]" />
+             <canvas ref={canvasRef} className="block object-contain max-w-full max-h-full" />
              
-             {/* Status Overlay */}
              {status === AppStatus.EXPORTING && (
-               <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center z-20">
+               <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center z-40">
                  <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin mb-3"></div>
                  <p className="text-white font-medium tracking-wide">{t.rendering}</p>
                </div>
              )}
           </div>
-          
         </div>
       </main>
+
+      {/* Sidebar Controls */}
+      <div className="order-3 lg:order-1 flex-shrink-0 lg:w-80 border-t lg:border-t-0 lg:border-r border-gray-800 bg-[#09090b] z-20 h-1/3 lg:h-full overflow-hidden">
+        <Controls 
+          settings={settings}
+          updateSettings={handleUpdateSettings}
+          onGenerate={() => {}} 
+          onExport={handleExport}
+          isGenerating={status === AppStatus.PROCESSING}
+          isExporting={status === AppStatus.EXPORTING}
+          hasImage={!!imageSrc}
+          t={t}
+        />
+      </div>
     </div>
   );
 };

@@ -118,16 +118,17 @@ const Controls: React.FC<ControlsProps> = ({
   t
 }) => {
   return (
-    <div className="w-full lg:w-80 bg-gray-900 border-t lg:border-t-0 lg:border-l border-gray-800 p-6 flex flex-col h-[40vh] lg:h-full overflow-y-auto">
-      <h2 className="text-lg font-bold text-white mb-6 flex items-center sticky top-0 bg-gray-900 pb-2 z-10">
-        <span className="bg-indigo-600 w-2 h-6 rounded mr-3"></span>
-        {t.settings}
-      </h2>
+    <div className="w-full h-full flex flex-col">
+      {/* Scrollable container for settings */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth">
+        <h2 className="text-lg font-bold text-white flex items-center mb-2">
+          <span className="bg-indigo-600 w-2 h-6 rounded mr-3"></span>
+          {t.settings}
+        </h2>
 
-      <div className="space-y-6 flex-1">
         {/* Line Extraction Section */}
         <section>
-          <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4 border-b border-gray-800 pb-2">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4 border-b border-gray-800 pb-2">
             {t.extraction}
           </h3>
           <Select 
@@ -150,7 +151,7 @@ const Controls: React.FC<ControlsProps> = ({
 
         {/* Animation Section */}
         <section>
-          <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4 border-b border-gray-800 pb-2">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4 border-b border-gray-800 pb-2">
             {t.animation}
           </h3>
           <Slider
@@ -180,7 +181,7 @@ const Controls: React.FC<ControlsProps> = ({
 
         {/* Style Section */}
         <section>
-          <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4 border-b border-gray-800 pb-2">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4 border-b border-gray-800 pb-2">
             {t.style}
           </h3>
           <Toggle 
@@ -202,14 +203,15 @@ const Controls: React.FC<ControlsProps> = ({
         </section>
       </div>
 
-      <div className="mt-8 pt-6 border-t border-gray-800 sticky bottom-0 bg-gray-900 pb-2">
+      {/* Export Button area - fixed at bottom of controls component */}
+      <div className="p-4 border-t border-gray-800 bg-[#09090b] shadow-2xl">
         <button
           onClick={onExport}
           disabled={!hasImage || isExporting}
-          className={`w-full py-3 px-4 rounded-lg font-bold text-sm uppercase tracking-wide transition-all shadow-lg 
+          className={`w-full py-3 px-4 rounded-xl font-bold text-sm uppercase tracking-wide transition-all 
             ${!hasImage || isExporting 
               ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
-              : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/30'
+              : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 active:scale-[0.98]'
             }`}
         >
           {isExporting ? t.generating : t.exportGif}
